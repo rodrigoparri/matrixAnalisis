@@ -74,27 +74,18 @@ def K22(EA, EI, L, alpha):
     glob_coord = T(alpha)
     return glob_coord @ k22 @ np.transpose(glob_coord)
 
-def print_block_matrix(block_matrix, submatrix_size=3):
-    rows, cols = block_matrix.shape
-    # Iterate through the matrix row-wise, printing each submatrix block
-    for i in range(0, rows, submatrix_size):
-        for j in range(submatrix_size):  # For each row in the submatrix
-            row_str = ""
-            for k in range(0, cols, submatrix_size):  # For each submatrix column block
-                row_str += " ".join(f"{block_matrix[i + j, k + l]:2}" for l in range(submatrix_size)) + "    "
-            print(row_str)
-        print("")  # Blank line between block rows
 
 if __name__ == '__main__':
+    np.set_printoptions(threshold=np.inf, linewidth=200)
     #N, mm
     #initial properties
-    E = 210E3
-    A_IPE300 = 5380
-    I_IPE300 = 8356E4
-    A_HEB160 = 5425
-    I_HEB160 = 2429E4
-    L_viga = 5.8
-    L_pilar = 2.9
+    E = 210E2
+    A_IPE300 = 53.80
+    I_IPE300 = 8356
+    A_HEB160 = 54.25
+    I_HEB160 = 2429
+    L_viga = 1030
+    L_pilar = 463.5
     alpha_pilar1 = pi / 2
     alpha_pilar2 = -pi / 2
 
@@ -111,45 +102,44 @@ if __name__ == '__main__':
     K21_12 = K21(EA_pilar, EI_pilar, L_pilar, alpha_pilar1)
     K22_12 = K22(EA_pilar, EI_pilar, L_pilar, alpha_pilar1)
 
-    # beam first half
+    # beam
     K11_23 = K11(EA_viga, EI_viga, L_viga, 0)
     K12_23 = K12(EA_viga, EI_viga, L_viga, 0)
     K21_23 = K21(EA_viga, EI_viga, L_viga, 0)
     K22_23 = K22(EA_viga, EI_viga, L_viga, 0)
 
-    # beam second half
-    K11_34 = K11(EA_viga, EI_viga, L_viga, 0)
-    K12_34 = K12(EA_viga, EI_viga, L_viga, 0)
-    K21_34 = K21(EA_viga, EI_viga, L_viga, 0)
-    K22_34 = K22(EA_viga, EI_viga, L_viga, 0)
-
-
     # first column
-    K11_45 = K11(EA_pilar, EI_pilar, L_pilar, alpha_pilar2)
-    K12_45 = K12(EA_pilar, EI_pilar, L_pilar, alpha_pilar2)
-    K21_45 = K21(EA_pilar, EI_pilar, L_pilar, alpha_pilar2)
-    K22_45 = K22(EA_pilar, EI_pilar, L_pilar, alpha_pilar2)
+    K11_34 = K11(EA_pilar, EI_pilar, L_pilar, alpha_pilar2)
+    K12_34 = K12(EA_pilar, EI_pilar, L_pilar, alpha_pilar2)
+    K21_34 = K21(EA_pilar, EI_pilar, L_pilar, alpha_pilar2)
+    K22_34 = K22(EA_pilar, EI_pilar, L_pilar, alpha_pilar2)
+
 
     # zero matrix
     zero = np.zeros((3, 3))
+    # stiffness matrix
     stiff_matrix = np.block([
-        [K11_12, K12_12, zero, zero, zero],
-        [K21_12, K22_12 + K11_23, K12_23, zero, zero],
-        [zero, K21_23, K22_23 + K11_34, K12_34, zero],
-        [zero, zero, K21_34, K22_34 + K11_45, K12_45],
-        [zero, zero, zero, K21_45, K22_45]
+        [K11_12, K12_12, zero, zero],
+        [K21_12, K22_12 + K11_23, K12_23, zero],
+        [zero, K21_23, K22_23 + K11_34, K12_34],
+        [zero, zero, K21_34, K22_34]
     ])
 
-    force_vector = np.vstack([
-        [1, 1, 1],
-        [-3.575E5, 20E3, -6.63E7],
-        [4.35E5, 20E3, 0],
-        [-3.775E5, 20E3, 4.69E7],
-        [1, 1, 1]
+    print("stiffness matrix:\n", stiff_matrix)
+
+    force_vector = np.array([
+        1, 1, 1,
+        -453.1, 0, -268.64,
+        -452.9, -68.75, 428.8,
+        1, 1, 0
     ])
 
-    reduced_stiff_matrix = stiff_matrix[3: -3, 3: -3]
-    reduced_force_vector = force_vector[1: -1].reshape(-1) #flatten the vstack
+    reduced_clm_rows = (3, 4, 5, 6, 7, 8, 11)  # accordint to zeros in displacements vectors
+    reduced_stiff_matrix = stiff_matrix[np.ix_(reduced_clm_rows, reduced_clm_rows)]
+    print(" reduced stiffness matrix:\n", reduced_stiff_matrix)
 
-    displacements = np.linalg.solve(reduced_stiff_matrix, reduced_force_vector)
-    print(displacements)
+    reduced_force_vector = force_vector[[3, 4, 5, 6, 7, 8, 11]]  # flatten the vstack
+    print("reduced force vector:\n", reduced_force_vector)
+
+    displacements_reduced = np.linalg.solve(reduced_stiff_matrix, reduced_force_vector)
+    print("reduced displacements:\n", displacements_reduced)
