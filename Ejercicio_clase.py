@@ -134,11 +134,11 @@ if __name__ == '__main__':
         1, 1, 0
     ])
 
-    reduced_clm_rows = (3, 4, 5, 6, 7, 8, 11)  # accordint to zeros in displacements vectors
+    reduced_clm_rows = [3, 4, 5, 6, 7, 8, 11]  # accordint to zeros in displacements vectors
     reduced_stiff_matrix = stiff_matrix[np.ix_(reduced_clm_rows, reduced_clm_rows)]
     print(" reduced stiffness matrix:\n", reduced_stiff_matrix)
-
-    reduced_force_vector = force_vector[[3, 4, 5, 6, 7, 8, 11]]  # flatten the vstack
+ 
+    reduced_force_vector = force_vector[reduced_clm_rows]  # flatten the vstack
     print("reduced force vector:\n", reduced_force_vector)
 
     displacements_reduced = np.linalg.solve(reduced_stiff_matrix, reduced_force_vector)
