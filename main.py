@@ -86,13 +86,14 @@ def print_block_matrix(block_matrix, submatrix_size=3):
         print("")  # Blank line between block rows
 
 if __name__ == '__main__':
-    #N, mm
+    np.set_printoptions(threshold=np.inf, linewidth=500)
+    #kN, m
     #initial properties
-    E = 210E3
-    A_IPE300 = 5380
-    I_IPE300 = 8356E4
-    A_HEB160 = 5425
-    I_HEB160 = 2429E4
+    E = 210E6
+    A_IPE300 = 53.8E-4
+    I_IPE300 = 8356E-8
+    A_HEB160 = 54.25E-4
+    I_HEB160 = 2429E-8
     L_viga = 5.8
     L_pilar = 2.9
     alpha_pilar1 = pi / 2
@@ -123,8 +124,7 @@ if __name__ == '__main__':
     K21_34 = K21(EA_viga, EI_viga, L_viga, 0)
     K22_34 = K22(EA_viga, EI_viga, L_viga, 0)
 
-
-    # first column
+    # second column
     K11_45 = K11(EA_pilar, EI_pilar, L_pilar, alpha_pilar2)
     K12_45 = K12(EA_pilar, EI_pilar, L_pilar, alpha_pilar2)
     K21_45 = K21(EA_pilar, EI_pilar, L_pilar, alpha_pilar2)
@@ -140,16 +140,71 @@ if __name__ == '__main__':
         [zero, zero, zero, K21_45, K22_45]
     ])
 
-    force_vector = np.vstack([
-        [1, 1, 1],
-        [-3.575E5, 20E3, -6.63E7],
-        [4.35E5, 20E3, 0],
-        [-3.775E5, 20E3, 4.69E7],
-        [1, 1, 1]
+    print("stiffness matrix:\n", stiff_matrix)
+
+    force_vector = np.array([
+        1, 1, 1,
+        20, -357.5, -66.33,
+        20, -435, 0,
+        20, -377.5, 46.93,
+        1, 1, 1
     ])
 
-    reduced_stiff_matrix = stiff_matrix[3: -3, 3: -3]
-    reduced_force_vector = force_vector[1: -1].reshape(-1) #flatten the vstack
+    reduced_clm_rows = [3, 4, 5, 6, 7, 8, 9, 10, 11]  # according to zeros in displacements vectors
+    reduced_stiff_matrix = stiff_matrix[np.ix_(reduced_clm_rows, reduced_clm_rows)]
+    print(" reduced stiffness matrix:\n", reduced_stiff_matrix)
 
-    displacements = np.linalg.solve(reduced_stiff_matrix, reduced_force_vector)
-    print(displacements)
+    reduced_force_vector = force_vector[reduced_clm_rows]
+    print("reduced force vector:\n", reduced_force_vector)
+
+    reduced_displ_vector = np.linalg.solve(reduced_stiff_matrix, reduced_force_vector)
+    print("reduced displacements:\n", reduced_displ_vector)
+
+    # future displacement vector
+    disp_list = []
+    # current item in reduced vector index
+    red_vect_index = 0
+    for i in range(0, len(force_vector)):
+        # if index is in extracted rows and columns
+        if i in reduced_clm_rows:
+            disp_list.append(reduced_displ_vector[red_vect_index])
+            red_vect_index += 1
+        else:
+            disp_list.append(0)
+
+    displ_vector = np.array(disp_list)
+    print("displacemten vector:\n", displ_vector)
+
+    result_force_vector = stiff_matrix @ displ_vector
+    print("result force vector:\n", result_force_vector)
+
+    # inner forces in each element
+    # T transpose for first column
+    TT1 = np.transpose(T(alpha_pilar1))
+    # T transpose for beam
+    TT2 = np.transpose(T(0))
+    # T transpose for second column
+    TT3 = np.transpose(T(alpha_pilar2))
+
+    # internal forces in each barr element
+    p1_12 = np.block([TT1 @ K11_12, TT1 @ K12_12]) @ displ_vector[:6]
+    p2_12 = np.block([TT1 @ K21_12, TT1 @ K22_12]) @ displ_vector[:6]
+
+    p2_23 = np.block([TT2 @ K11_23, TT2 @ K12_23]) @ displ_vector[3:9]
+    p3_23 = np.block([TT2 @ K21_23, TT2 @ K22_23]) @ displ_vector[3:9]
+
+    p3_34 = np.block([TT2 @ K11_34, TT2 @ K12_34]) @ displ_vector[6:12]
+    p4_34 = np.block([TT2 @ K21_34, TT2 @ K22_34]) @ displ_vector[6:12]
+
+    p4_45 = np.block([TT3 @ K11_45, TT3 @ K12_45]) @ displ_vector[9:]
+    p5_45 = np.block([TT3 @ K21_45, TT3 @ K22_45]) @ displ_vector[9:]
+
+    print("\nNODE INTERNAL FORCES\n")
+    print("node 1 bar 1-2:\n", p1_12)
+    print("node 2 bar 1-2:\n", p2_12)
+    print("node 2 bar 2-3:\n", p2_23)
+    print("node 3 bar 2-3:\n", p3_23)
+    print("node 3 bar 3-4:\n", p3_34)
+    print("node 4 bar 3-4:\n", p4_34)
+    print("node 4 bar 4-5:\n", p4_45)
+    print("node 5 bar 4-5:\n", p5_45)
