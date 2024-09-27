@@ -88,7 +88,7 @@ if __name__=='__main__':
     L_viga = 5
     L_pilar = 4
     alpha_pilar1 = pi / 2
-    alpha_pilar2 = -pi / 2
+
 
     # element properties
     EA = 5E9
@@ -107,10 +107,10 @@ if __name__=='__main__':
     K22_12 = K22(EA, EI, L_viga, 0)
 
     # second column
-    K11_42 = K11(EA, EI, L_pilar, alpha_pilar2)
-    K12_42 = K12(EA, EI, L_pilar, alpha_pilar2)
-    K21_42 = K21(EA, EI, L_pilar, alpha_pilar2)
-    K22_42 = K22(EA, EI, L_pilar, alpha_pilar2)
+    K11_42 = K11(EA, EI, L_pilar, alpha_pilar1)
+    K12_42 = K12(EA, EI, L_pilar, alpha_pilar1)
+    K21_42 = K21(EA, EI, L_pilar, alpha_pilar1)
+    K22_42 = K22(EA, EI, L_pilar, alpha_pilar1)
 
     # zero matrix
     zero = np.zeros((3, 3))
@@ -157,3 +157,28 @@ if __name__=='__main__':
 
     result_force_vector = stiff_matrix @ displ_vector
     print("result force vector:\n", result_force_vector)
+
+# inner forces in each element
+    # T transpose for first column
+    print(T(alpha_pilar1))
+    TT1 = np.transpose(T(alpha_pilar1))
+    # T transpose for beam
+    TT2 = np.transpose(T(0))
+
+    # internal forces in each barr element
+    p3_31 = np.block([TT1 @ K11_31, TT1 @ K12_31]) @ displ_vector[[6, 7, 8, 0, 1, 2]]
+    p1_31 = np.block([TT1 @ K21_31, TT1 @ K22_31]) @ displ_vector[[6, 7, 8, 0, 1, 2]]
+
+    p1_12 = np.block([TT2 @ K11_12, TT2 @ K12_12]) @ displ_vector[:6]
+    p2_12 = np.block([TT2 @ K21_12, TT2 @ K22_12]) @ displ_vector[:6]
+
+    p4_42 = np.block([TT1 @ K11_42, TT1 @ K12_42]) @ displ_vector[[9, 10, 11, 3, 4, 5]]
+    p2_42 = np.block([TT1 @ K21_42, TT1 @ K22_42]) @ displ_vector[[9, 10, 11, 3, 4, 5]]
+
+    print("\nNODE INTERNAL FORCES\n")
+    print("node 3 bar 3-1:\n", p3_31)
+    print("node 1 bar 3-1:\n", p1_31)
+    print("node 1 bar 1-2:\n", p1_12)
+    print("node 2 bar 1-2:\n", p2_12)
+    print("node 2 bar 4-2:\n", p2_42)
+    print("node 4 bar 4-2:\n", p4_42)
