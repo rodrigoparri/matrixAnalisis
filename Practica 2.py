@@ -1,5 +1,5 @@
 import numpy as np
-from math import cos, sin, pi, sqrt
+from math import cos, sin, pi, sqrt, radians
 
 def T(alpha):
     T = np.array([
@@ -103,8 +103,8 @@ if __name__ == "__main__":
     # kN, m
     # initial properties
     E = 210E6
-    A_IPE400 = 53.8E-4
-    I_IPE400 = 46260E-8  # twice the actual ipe400 inertia
+    A_IPE500 = 115.5E-4
+    I_IPE500 = 48200E-8  # twice the actual ipe400 inertia
     A_HEB300 = 149.1E-4
     I_HEB300 = 25170E-8
     A_HEB320 = 161.30E-4
@@ -119,12 +119,12 @@ if __name__ == "__main__":
     alpha_23 = 0
     alpha_34 = -pi / 2
     alpha_35 = 0
-    alpha_13 = 26.57
+    alpha_13 = radians(26.57)
     alpha_24 = -alpha_13
 
     # element properties
-    EA_viga = E * A_IPE400
-    EI_viga = E * I_IPE400
+    EA_viga = E * A_IPE500
+    EI_viga = E * I_IPE500
     EA_pilar_12 = E * A_HEB300
     EI_pilar_12 = E * I_HEB300
     EA_pilar_34 = E * A_HEB320
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     stiff_matrix = np.block([
         [K11_12 + K11_13, K12_12, K12_13, zero, zero],
         [K21_12, K22_12 + K11_23 + K11_24, K12_23, K12_24, zero],
-        [K21_13, K21_23, K22_23 + K22_13 + K11_34, K12_34, K12_35],
+        [K21_13, K21_23, K22_23 + K22_13 + K11_34 + K11_35, K12_34, K12_35],
         [zero, K21_24, K21_34, K22_34, zero],
         [zero, zero, K21_35, zero, K22_35]
     ])
@@ -182,8 +182,8 @@ if __name__ == "__main__":
 
     force_vector = np.array([
         1, 1, 1,
-        150, -264, 51.2,
-        0, -510, 63,
+        150, -424, -162.1,
+        0, -510, 33.3,
         1, 1, 0,
         0, -154, -51.2
     ])
@@ -211,7 +211,7 @@ if __name__ == "__main__":
             disp_list.append(0)
 
     displ_vector = np.array(disp_list)
-    print("displacemten vector(global coordinates):\n", displ_vector)
+    print("displacement vector(global coordinates):\n", displ_vector)
 
     result_force_vector = stiff_matrix @ displ_vector
     print("result force vector(global coordinates):\n", result_force_vector)
@@ -235,16 +235,16 @@ if __name__ == "__main__":
     p2_23 = np.block([TT2 @ K11_23, TT2 @ K12_23]) @ displ_vector[3:9]
     p3_23 = np.block([TT2 @ K21_23, TT2 @ K22_23]) @ displ_vector[3:9]
 
-    p3_34 = np.block([TT2 @ K11_34, TT2 @ K12_34]) @ displ_vector[6:12]
-    p4_34 = np.block([TT2 @ K21_34, TT2 @ K22_34]) @ displ_vector[6:12]
+    p3_34 = np.block([TT3 @ K11_34, TT3 @ K12_34]) @ displ_vector[6:12]
+    p4_34 = np.block([TT3 @ K21_34, TT3 @ K22_34]) @ displ_vector[6:12]
 
-    p3_35 = np.block([TT3 @ K11_35, TT3 @ K12_35]) @ displ_vector[[3,4,5,12,13,14]]
-    p5_35 = np.block([TT3 @ K21_35, TT3 @ K22_35]) @ displ_vector[[3,4,5,12,13,14]]
+    p3_35 = np.block([TT2 @ K11_35, TT2 @ K12_35]) @ displ_vector[[6,7,8,12,13,14]]
+    p5_35 = np.block([TT2 @ K21_35, TT2 @ K22_35]) @ displ_vector[[6,7,8,12,13,14]]
 
     p1_13 = np.block([TT4 @ K11_13, TT4 @ K12_13]) @ displ_vector[[0,1,2,6,7,8]]
     p3_13 = np.block([TT4 @ K21_13, TT4 @ K22_13]) @ displ_vector[[0,1,2,6,7,8]]
 
-    p2_24 = np.block([TT5 @ K11_24, TT5 @ K22_24]) @ displ_vector[[3,4,5,9,10,11]]
+    p2_24 = np.block([TT5 @ K11_24, TT5 @ K12_24]) @ displ_vector[[3,4,5,9,10,11]]
     p4_24 = np.block([TT5 @ K21_24, TT5 @ K22_24]) @ displ_vector[[3,4,5,9,10,11]]
 
     print("\nNODE INTERNAL FORCES (local coordinates)\n")
@@ -259,4 +259,4 @@ if __name__ == "__main__":
     print('node 1 strut 1-3: \n', p1_13)
     print('node 3 strut 1-3: \n', p3_13)
     print('node 2 strut 2-4: \n', p2_24)
-    print('node 4 strut 2-4: \n', p2_24)
+    print('node 4 strut 2-4: \n', p4_24)
