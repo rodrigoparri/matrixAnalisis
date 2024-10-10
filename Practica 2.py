@@ -225,10 +225,10 @@ if __name__ == "__main__":
     TT3 = np.transpose(T(alpha_34))
     # T transpose for first strut
     TT4 = np.transpose(T(alpha_13))
-    # T transpose for first strut
+    # T transpose for second strut
     TT5 = np.transpose(T(alpha_24))
 
-    # internal forces in each barr element
+    # internal forces in each bar element
     p1_12 = np.block([TT1 @ K11_12, TT1 @ K12_12]) @ displ_vector[:6]
     p2_12 = np.block([TT1 @ K21_12, TT1 @ K22_12]) @ displ_vector[:6]
 
