@@ -98,6 +98,9 @@ def K22(EA, EI, L, alpha, hinged = False):
     glob_coord = T(alpha)
     return glob_coord @ k22 @ np.transpose(glob_coord)
 
+def isSimetric(matrix:np.array):
+    return np.array_equal(matrix,np.transpose(matrix))
+
 if __name__ == "__main__":
     np.set_printoptions(threshold=np.inf, linewidth=500)
     # kN, m
@@ -138,7 +141,7 @@ if __name__ == "__main__":
     K21_12 = K21(EA_pilar_12, EI_pilar_12, L_12, alpha_12)
     K22_12 = K22(EA_pilar_12, EI_pilar_12, L_12, alpha_12)
 
-    # beam first half
+    # beam 23
     K11_23 = K11(EA_viga, EI_viga, L_23, 0)
     K12_23 = K12(EA_viga, EI_viga, L_23, 0)
     K21_23 = K21(EA_viga, EI_viga, L_23, 0)
@@ -178,7 +181,7 @@ if __name__ == "__main__":
         [zero, zero, K21_35, zero, K22_35]
     ])
 
-    print("stiffness matrix:\n", stiff_matrix)
+    print("stiffness matrix:\n", stiff_matrix, f"\n Stiffness matrix is simetric: {isSimetric(stiff_matrix)}")
 
     force_vector = np.array([
         1, 1, 1,
@@ -232,6 +235,7 @@ if __name__ == "__main__":
     p1_12 = np.block([TT1 @ K11_12, TT1 @ K12_12]) @ displ_vector[:6]
     p2_12 = np.block([TT1 @ K21_12, TT1 @ K22_12]) @ displ_vector[:6]
 
+    print(displ_vector[3:9])
     p2_23 = np.block([TT2 @ K11_23, TT2 @ K12_23]) @ displ_vector[3:9]
     p3_23 = np.block([TT2 @ K21_23, TT2 @ K22_23]) @ displ_vector[3:9]
 
