@@ -191,7 +191,7 @@ if __name__ == "__main__":
         0, -154, -51.2
     ])
 
-    reduced_clm_rows = [3, 4, 5, 6, 7, 8, 11, 12, 14]  # according to zeros in displacements vectors by index
+    reduced_clm_rows = [3, 4, 5, 6, 7, 8, 11, 12, 14]  # according to non zeros in displacements vectors by index
     reduced_stiff_matrix = stiff_matrix[np.ix_(reduced_clm_rows, reduced_clm_rows)]
     print(" reduced stiffness matrix:\n", reduced_stiff_matrix)
 

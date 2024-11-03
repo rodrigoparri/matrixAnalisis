@@ -1,5 +1,6 @@
 import numpy as np
 from math import cos, sin
+from collections import OrderedDict
 
 
 class FrameElement:
@@ -25,6 +26,7 @@ class FrameElement:
         self.k_12 = self.K12(E*A, E*I, L, alpha, hinged)
         self.k_21 = self.K21(E*A, E*I, L, alpha, hinged)
         self.k_22 = self.K22(E*A, E*I, L, alpha, hinged)
+        self.T_transpose = np.transpose(self.T(alpha))
 
     def __repr__(self):
         return f"""
@@ -48,7 +50,6 @@ class FrameElement:
 
     def K11(self, EA, EI, L, alpha, hinged=False):
         """
-
         :param EA: normal stiffness
         :param EI: bending stiffness
         :param L: bar length
@@ -137,7 +138,7 @@ class FrameElement:
 
 class GlobalMatrix_gen:
 
-    def __init__(self, adjacency: dict, el_propts: dict):
+    def __init__(self, adjacency: dict, el_propts: dict, force_vector: np.ndarray, displacement_vector: np.ndarray):
         """
         :param adjacency: node adjacency list {0:[0,1], 1:[0,1,2], 2:[1,2]} each node has to include itself
         :param el_propts: element property list {14:{E:1, A: 2, I: 3, L: 4, alpha: 5, hinged: False}, ...}
@@ -149,13 +150,15 @@ class GlobalMatrix_gen:
         self.adjacency = adjacency
         # sort adjacent nodes
         self.node_sorter()
-        self.el_propts = el_propts
-        self.frame_els = {}  # {'01': <element>}
+        self.element_properties = el_propts
+        self.frame_elements = {}  # {'01': <element>}
 
         self.create_frame_els()
-        self.global_matrix()
-        self.global_matrix_str()
-        #print(self.frame_els['01'].k_11)
+        self.Global_Matrix = self.global_matrix()
+        self.Global_Matrix_str = self.global_matrix_str()
+
+        self.result_displacement_vector = self.solve(force_vector, displacement_vector)
+        self.result_internal_forces = self.results()
 
     def create_frame_els(self):
         already_connected_node_pairs = []
@@ -167,15 +170,15 @@ class GlobalMatrix_gen:
                 if nodes not in already_connected_node_pairs:
                     element = str(nodes[0]) + str(nodes[1])
                     # create bar element
-                    self.frame_els[element] = FrameElement(
+                    self.frame_elements[element] = FrameElement(
                         nodes[0],
                         nodes[1],
-                        self.el_propts[element]['E'],
-                        self.el_propts[element]['A'],
-                        self.el_propts[element]['I'],
-                        self.el_propts[element]['L'],
-                        self.el_propts[element]['alpha'],
-                        self.el_propts[element]['hinged']
+                        self.element_properties[element]['E'],
+                        self.element_properties[element]['A'],
+                        self.element_properties[element]['I'],
+                        self.element_properties[element]['L'],
+                        self.element_properties[element]['alpha'],
+                        self.element_properties[element]['hinged']
                     )
                     already_connected_node_pairs.append(nodes)
                 else:
@@ -199,7 +202,7 @@ class GlobalMatrix_gen:
         return row
 
     def isInitialnode(self, i: int, frame_element: str):
-        return self.frame_els[frame_element].nodes[0] == i
+        return self.frame_elements[frame_element].nodes[0] == i
 
     def current_elmnt_str(self, i, j):
         return str(min(i,j)) + str(max(i,j))
@@ -208,7 +211,7 @@ class GlobalMatrix_gen:
 
         row_list = []
         current_element = ''
-        for i, nodes in adjacency.items():
+        for i, nodes in self.adjacency.items():
             current_row = self.initial_row()
             # variable that stores sum of the K matrices of the displacements of node i
             i_K = np.zeros((3, 3))
@@ -223,27 +226,26 @@ class GlobalMatrix_gen:
                 current_element = self.current_elmnt_str(i, j)
                 # check for every of the four possible local matrices
                 if self.isInitialnode(j, current_element):
-                    current_row[j] = self.frame_els[current_element].k_21
+                    current_row[j] = self.frame_elements[current_element].k_21
                     # add matrix of i to the current matrix of i
-                    i_K += self.frame_els[current_element].k_22
+                    i_K += self.frame_elements[current_element].k_22
                 else:
-                    current_row[j] = self.frame_els[current_element].k_12
+                    current_row[j] = self.frame_elements[current_element].k_12
                     # add matrix of i to the current matrix of i
-                    i_K += self.frame_els[current_element].k_11
+                    i_K += self.frame_elements[current_element].k_11
             # set i column to the matrix k of the i displacement
             current_row[i] = i_K
             # add current row to global matrix
             row_list.append(np.hstack(current_row))
 
         global_matrix = np.vstack(row_list)
-        print(global_matrix)
         return global_matrix
 
     def global_matrix_str(self):
 
         row_list = []
         current_element = ''
-        for i, nodes in adjacency.items():
+        for i, nodes in self.adjacency.items():
             # reset current row
             current_row = self.initial_row_str()
             # variable that stores sum of the K matrices of the displacements of node i
@@ -268,7 +270,6 @@ class GlobalMatrix_gen:
 
         global_matrix = np.vstack(row_list)
 
-        print(global_matrix)
         return global_matrix
 
     def node_sorter(self):
@@ -276,9 +277,71 @@ class GlobalMatrix_gen:
         sorts adjacent nodes from smaller to bigger
         :return: sorted adjacency list
         """
+        ordered_adjacency = OrderedDict(sorted(self.adjacency.items()))
+        self.adjacency = ordered_adjacency
         for node in self.adjacency:
             self.adjacency[node].sort()
 
+    def get_reduced_clm_row(self, displacement_vector):
+        """
+        :param displacement_vector: np.array with 0 if global displacement of the is 0 and 1 if is an unknown value
+        :return: list of indexes where diplacement vector is non zero
+        """
+        reduced_clm_row = []
+        for i in range(0, len(displacement_vector) - 1):
+            if displacement_vector[i] != 0:
+                reduced_clm_row.append(i)
+            else:
+                continue
+
+        return reduced_clm_row
+
+    def get_reduced_matrix(self, reduced_clm_row):
+        reduced_matrix = self.Global_Matrix[np.ix_(reduced_clm_row, reduced_clm_row)]
+        return reduced_matrix
+
+    def get_reduced_vector(self, vector, reduced_clm_row):
+        reduced_vector = vector[reduced_clm_row]
+        return reduced_vector
+
+    def solve(self, force_vector, displacement_vector):
+        reduced_clm_row = self.get_reduced_clm_row(displacement_vector)
+        reduced_stiff_matrix = self.get_reduced_matrix(reduced_clm_row)
+        reduced_force_vector = self.get_reduced_vector(force_vector, reduced_clm_row)
+        reduced_displacement_vector = np.linalg.solve(reduced_stiff_matrix, reduced_force_vector)
+
+        # complete displacement vector with results
+        disp_list = []
+        # current item in reduced vector index
+        red_vect_index = 0
+        for i in range(0, len(force_vector)):
+            # if index is in extracted rows and columns
+            if i in reduced_clm_row:
+                disp_list.append(reduced_displacement_vector[red_vect_index])
+                red_vect_index += 1
+            else:
+                disp_list.append(0)
+
+        result_displacement_vector = np.array(disp_list)
+
+        return result_displacement_vector
+
+    def results(self):
+        # internal forces in local coordinates of each element
+        elements_internal_forces = {}
+        for name, element in self.frame_elements.items():
+
+            # names of nodes force vectors
+            name_node1 = f'p{element.nodes[0]}_{name}'
+            name_node2 = f'p{element.nodes[1]}_{name}'
+
+            bounds = [(3 * element.nodes[0], 3 * element.nodes[0] + 2), (3 * element.nodes[1], 3 * element.nodes[1] + 2)]
+            # global displacements only concerning considered nodes
+            displacement_vector = np.concatenate([self.result_displacement_vector[start:end+1] for start, end in bounds])
+            elements_internal_forces[name_node1] = np.block([element.T_transpose @ element.k_11, element.T_transpose @ element.k_12]) @ displacement_vector
+            elements_internal_forces[name_node2] = np.block([element.T_transpose @ element.k_21, element.T_transpose @ element.k_22]) @ displacement_vector
+
+        return  elements_internal_forces
 
 if __name__ == '__main__':
     adjacency = {0: [1],
@@ -298,4 +361,3 @@ if __name__ == '__main__':
         '14': {'E': 1, 'A': 2, 'I': 3, 'L': 4, 'alpha': 5, 'hinged': False}
     }
 
-    matrix_gen = GlobalMatrix_gen(adjacency, el_propts)
